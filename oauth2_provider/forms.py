@@ -10,3 +10,4 @@ class AllowForm(forms.Form):
     response_type = forms.CharField(widget=forms.HiddenInput())
     code_challenge_method = forms.ChoiceField(required=False, widget=forms.HiddenInput(), choices=(('S256', 'S256'),))
     code_challenge = forms.CharField(required=False, widget=forms.HiddenInput())
+    code_verifier = forms.CharField(required=False, widget=forms.HiddenInput())
