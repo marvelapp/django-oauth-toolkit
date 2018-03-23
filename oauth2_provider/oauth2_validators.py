@@ -251,7 +251,7 @@ class OAuth2Validator(RequestValidator):
     def validate_code(self, client_id, code, client, request, *args, **kwargs):
         try:
             grant = Grant.objects.get(code=code, application=client)
-            if not grant.is_expired() and grant.check_pkce(getattr(request, 'pkce', None)):
+            if not grant.is_expired() and grant.check_pkce(getattr(request, 'code_challenge', None)):
                 request.scopes = grant.scope.split(' ')
                 request.user = grant.user
                 return True
