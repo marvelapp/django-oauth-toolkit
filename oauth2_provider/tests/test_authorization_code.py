@@ -932,7 +932,7 @@ class TestAuthorizationCodeTokenView(BaseTest):
             'grant_type': 'authorization_code',
             'code': authorization_code,
             'redirect_uri': 'http://example.it?foo=bar',
-            'code_challenge': 'secret'
+            'code_verifier': 'secret'
         }
         auth_headers = self.get_basic_auth_header(self.application.client_id, self.application.client_secret)
 
@@ -967,7 +967,7 @@ class TestAuthorizationCodeTokenView(BaseTest):
             'grant_type': 'authorization_code',
             'code': authorization_code,
             'redirect_uri': 'http://example.it?foo=bar',
-            'code_challenge': 'not-the-right-secret'
+            'code_verifier': 'not-the-right-secret'
         }
         auth_headers = self.get_basic_auth_header(self.application.client_id, self.application.client_secret)
 
@@ -1032,7 +1032,7 @@ class TestAuthorizationCodeTokenView(BaseTest):
             'grant_type': 'authorization_code',
             'code': authorization_code,
             'redirect_uri': 'http://example.it?foo=bar',
-            'code_challenge': '',
+            'code_verifier': '',
         }
         auth_headers = self.get_basic_auth_header(self.application.client_id, self.application.client_secret)
 
