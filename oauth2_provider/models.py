@@ -166,6 +166,7 @@ class Grant(models.Model):
     expires = models.DateTimeField()
     redirect_uri = models.CharField(max_length=255)
     scope = models.TextField(blank=True)
+    pkce_code = models.TextField(null=True)
 
     def is_expired(self):
         """

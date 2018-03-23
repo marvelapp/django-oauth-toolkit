@@ -908,6 +908,43 @@ class TestAuthorizationCodeTokenView(BaseTest):
         self.assertEqual(content['scope'], "read write")
         self.assertEqual(content['expires_in'], oauth2_settings.ACCESS_TOKEN_EXPIRE_SECONDS)
 
+    def test_pkce(self):
+        self.client.login(username="test_user", password="123456")
+
+        import hashlib
+        hashed_data = hashlib.sha256('secret').hexdigest()
+
+        # retrieve a valid authorization code
+        authcode_data = {
+            'client_id': self.application.client_id,
+            'state': 'random_state_string',
+            'scope': 'read write',
+            'redirect_uri': 'http://example.it?foo=bar',
+            'response_type': 'code',
+            'allow': True,
+            'pkce': hashed_data
+        }
+        response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
+        query_dict = parse_qs(urlparse(response['Location']).query)
+        authorization_code = query_dict['code'].pop()
+
+        # exchange authorization code for a valid access token
+        token_request_data = {
+            'grant_type': 'authorization_code',
+            'code': authorization_code,
+            'redirect_uri': 'http://example.it?foo=bar',
+            'pkce': 'secret'
+        }
+        auth_headers = self.get_basic_auth_header(self.application.client_id, self.application.client_secret)
+
+        response = self.client.post(reverse('oauth2_provider:token'), data=token_request_data, **auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+        content = json.loads(response.content.decode("utf-8"))
+        self.assertEqual(content['token_type'], "Bearer")
+        self.assertEqual(content['scope'], "read write")
+        self.assertEqual(content['expires_in'], oauth2_settings.ACCESS_TOKEN_EXPIRE_SECONDS)
+
     def test_code_exchange_fails_when_redirect_uri_does_not_match(self):
         """
         Tests code exchange fails when redirect uri does not match the one used for code request

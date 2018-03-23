@@ -298,7 +298,7 @@ class OAuth2Validator(RequestValidator):
             seconds=oauth2_settings.AUTHORIZATION_CODE_EXPIRE_SECONDS)
         g = Grant(application=request.client, user=request.user, code=code['code'],
                   expires=expires, redirect_uri=request.redirect_uri,
-                  scope=' '.join(request.scopes))
+                  scope=' '.join(request.scopes), pkce_code=getattr(request, 'pkce', None))
         g.save()
 
     def rotate_refresh_token(self, request):
