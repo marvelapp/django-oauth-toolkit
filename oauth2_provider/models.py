@@ -176,7 +176,7 @@ class Grant(models.Model):
                 return True
             return False
 
-        hashed_given_value = base64.urlsafe_b64encode(hashlib.sha256(b'secret').hexdigest())
+        hashed_given_value = base64.urlsafe_b64encode(hashlib.sha256(given_value).hexdigest())
         return hashed_given_value == self.pkce_code
 
     def is_expired(self):
