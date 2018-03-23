@@ -911,7 +911,7 @@ class TestAuthorizationCodeTokenView(BaseTest):
 
     def test_pkce(self):
         self.client.login(username="test_user", password="123456")
-        hashed_data = hashlib.sha256(b'secret').hexdigest()
+        hashed_data = base64.urlsafe_b64encode(hashlib.sha256(b'secret').hexdigest())
 
         # retrieve a valid authorization code
         authcode_data = {
@@ -921,7 +921,7 @@ class TestAuthorizationCodeTokenView(BaseTest):
             'redirect_uri': 'http://example.it?foo=bar',
             'response_type': 'code',
             'allow': True,
-            'pkce': hashed_data
+            'code_challenge': hashed_data
         }
         response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
         query_dict = parse_qs(urlparse(response['Location']).query)
@@ -932,7 +932,7 @@ class TestAuthorizationCodeTokenView(BaseTest):
             'grant_type': 'authorization_code',
             'code': authorization_code,
             'redirect_uri': 'http://example.it?foo=bar',
-            'pkce': 'secret'
+            'code_challenge': 'secret'
         }
         auth_headers = self.get_basic_auth_header(self.application.client_id, self.application.client_secret)
 
@@ -946,7 +946,7 @@ class TestAuthorizationCodeTokenView(BaseTest):
 
     def test_pkce_exchange_fails_with_invalid_hash(self):
         self.client.login(username="test_user", password="123456")
-        hashed_data = hashlib.sha256(b'secret').hexdigest()
+        hashed_data = base64.urlsafe_b64encode(hashlib.sha256(b'secret').hexdigest())
 
         # retrieve a valid authorization code
         authcode_data = {
@@ -956,7 +956,7 @@ class TestAuthorizationCodeTokenView(BaseTest):
             'redirect_uri': 'http://example.it?foo=bar',
             'response_type': 'code',
             'allow': True,
-            'pkce': hashed_data
+            'code_challenge': hashed_data
         }
         response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
         query_dict = parse_qs(urlparse(response['Location']).query)
@@ -967,7 +967,7 @@ class TestAuthorizationCodeTokenView(BaseTest):
             'grant_type': 'authorization_code',
             'code': authorization_code,
             'redirect_uri': 'http://example.it?foo=bar',
-            'pkce': 'not-the-right-secret'
+            'code_challenge': 'not-the-right-secret'
         }
         auth_headers = self.get_basic_auth_header(self.application.client_id, self.application.client_secret)
 
@@ -979,7 +979,7 @@ class TestAuthorizationCodeTokenView(BaseTest):
 
     def test_pkce_exchange_fails_with_missing_value(self):
         self.client.login(username="test_user", password="123456")
-        hashed_data = hashlib.sha256(b'secret').hexdigest()
+        hashed_data = base64.urlsafe_b64encode(hashlib.sha256(b'secret').hexdigest())
 
         # retrieve a valid authorization code
         authcode_data = {
@@ -989,7 +989,7 @@ class TestAuthorizationCodeTokenView(BaseTest):
             'redirect_uri': 'http://example.it?foo=bar',
             'response_type': 'code',
             'allow': True,
-            'pkce': hashed_data
+            'code_challenge': hashed_data
         }
         response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
         query_dict = parse_qs(urlparse(response['Location']).query)
@@ -1011,7 +1011,7 @@ class TestAuthorizationCodeTokenView(BaseTest):
 
     def test_pkce_exchange_fails_with_empty_value(self):
         self.client.login(username="test_user", password="123456")
-        hashed_data = hashlib.sha256(b'secret').hexdigest()
+        hashed_data = base64.urlsafe_b64encode(hashlib.sha256(b'secret').hexdigest())
 
         # retrieve a valid authorization code
         authcode_data = {
@@ -1021,7 +1021,7 @@ class TestAuthorizationCodeTokenView(BaseTest):
             'redirect_uri': 'http://example.it?foo=bar',
             'response_type': 'code',
             'allow': True,
-            'pkce': hashed_data
+            'code_challenge': hashed_data
         }
         response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
         query_dict = parse_qs(urlparse(response['Location']).query)
@@ -1032,7 +1032,7 @@ class TestAuthorizationCodeTokenView(BaseTest):
             'grant_type': 'authorization_code',
             'code': authorization_code,
             'redirect_uri': 'http://example.it?foo=bar',
-            'pkce': '',
+            'code_challenge': '',
         }
         auth_headers = self.get_basic_auth_header(self.application.client_id, self.application.client_secret)
 

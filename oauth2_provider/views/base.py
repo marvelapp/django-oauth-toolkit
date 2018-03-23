@@ -95,7 +95,8 @@ class AuthorizationView(BaseAuthorizationView, FormView):
                 'redirect_uri': form.cleaned_data.get('redirect_uri'),
                 'response_type': form.cleaned_data.get('response_type', None),
                 'state': form.cleaned_data.get('state', None),
-                'pkce': form.cleaned_data.get('pkce', None) or None  # If it's an empty string, coerce it to None
+                'code_challenge_method': form.cleaned_data.get('code_challenge_method', None) or None,
+                'code_challenge': form.cleaned_data.get('code_challenge', None) or None  # If it's an empty string, coerce it to None
             }
             scopes = form.cleaned_data.get('scope')
             allow = form.cleaned_data.get('allow')
