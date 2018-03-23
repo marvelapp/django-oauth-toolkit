@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 from datetime import timedelta
+import hashlib
 
 from django.apps import apps
 from django.conf import settings
@@ -167,6 +168,15 @@ class Grant(models.Model):
     redirect_uri = models.CharField(max_length=255)
     scope = models.TextField(blank=True)
     pkce_code = models.TextField(null=True)
+
+    def check_pkce(self, given_value):
+        if given_value is None:
+            if self.pkce_code is None:
+                return True
+            return False
+
+        hashed_given_value = hashlib.sha256(given_value).hexdigest()
+        return hashed_given_value == self.pkce_code
 
     def is_expired(self):
         """
