@@ -85,6 +85,8 @@ class AuthorizationView(BaseAuthorizationView, FormView):
             'client_id': self.oauth2_data.get('client_id', None),
             'state': self.oauth2_data.get('state', None),
             'response_type': self.oauth2_data.get('response_type', None),
+            'code_challenge_method': self.oauth2_data.get('code_challenge_method', None),
+            'code_challenge': self.oauth2_data.get('code_challenge', None),
         }
         return initial_data
 
@@ -97,7 +99,6 @@ class AuthorizationView(BaseAuthorizationView, FormView):
                 'state': form.cleaned_data.get('state', None),
                 'code_challenge_method': form.cleaned_data.get('code_challenge_method', None) or None,
                 'code_challenge': form.cleaned_data.get('code_challenge', None) or None,  # If it's an empty string, coerce it to None
-                'code_verifier': form.cleaned_data.get('code_verifier', None) or None
             }
             scopes = form.cleaned_data.get('scope')
             allow = form.cleaned_data.get('allow')
@@ -123,6 +124,13 @@ class AuthorizationView(BaseAuthorizationView, FormView):
             kwargs['redirect_uri'] = credentials['redirect_uri']
             kwargs['response_type'] = credentials['response_type']
             kwargs['state'] = credentials['state']
+
+            # grab the values needed for PKCE here instead of in validate_authorization_request()
+            # so we don't need to fork oauthlib too
+            kwargs.update({
+                'code_challenge': request.GET.get('code_challenge'),
+                'code_challenge_method': request.GET.get('code_challenge_method'),
+            })
 
             self.oauth2_data = kwargs
             # following two loc are here only because of https://code.djangoproject.com/ticket/17795
