@@ -921,7 +921,8 @@ class TestAuthorizationCodeTokenView(BaseTest):
             'redirect_uri': 'http://example.it?foo=bar',
             'response_type': 'code',
             'allow': True,
-            'code_challenge': hashed_data
+            'code_challenge': hashed_data,
+            'code_challenge_method': 'S256',
         }
         response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
         query_dict = parse_qs(urlparse(response['Location']).query)
