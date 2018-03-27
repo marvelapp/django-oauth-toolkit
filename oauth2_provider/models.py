@@ -75,6 +75,9 @@ class AbstractApplication(models.Model):
     name = models.CharField(max_length=255, blank=True)
     skip_authorization = models.BooleanField(default=False)
 
+    # if True, authorization /must/ happen using PKCE
+    enable_pkce = models.BooleanField(default=False)
+
     class Meta:
         abstract = True
 
