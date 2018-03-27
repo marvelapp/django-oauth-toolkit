@@ -174,9 +174,7 @@ class Grant(models.Model):
     pkce_code = models.TextField(null=True)
 
     def check_pkce(self, given_value):
-        if given_value is None:
-            if self.pkce_code is None:
-                return True
+        if given_value is None or self.pkce_code is None:
             return False
 
         hashed_given_value = base64.urlsafe_b64encode(hashlib.sha256(given_value).hexdigest())
