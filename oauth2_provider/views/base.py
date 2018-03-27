@@ -1,3 +1,4 @@
+from collections import namedtuple
 import logging
 
 from django.http import HttpResponse
@@ -5,6 +6,8 @@ from django.views.decorators.debug import sensitive_post_parameters
 from django.views.generic import View, FormView
 from django.utils import timezone
 from django.utils.decorators import method_decorator
+from oauthlib.common import Request
+from oauthlib.oauth2.rfc6749.errors import InvalidRequestError
 
 from braces.views import LoginRequiredMixin, CsrfExemptMixin
 
@@ -85,6 +88,8 @@ class AuthorizationView(BaseAuthorizationView, FormView):
             'client_id': self.oauth2_data.get('client_id', None),
             'state': self.oauth2_data.get('state', None),
             'response_type': self.oauth2_data.get('response_type', None),
+            'code_challenge_method': self.oauth2_data.get('code_challenge_method', None),
+            'code_challenge': self.oauth2_data.get('code_challenge', None),
         }
         return initial_data
 
@@ -95,7 +100,24 @@ class AuthorizationView(BaseAuthorizationView, FormView):
                 'redirect_uri': form.cleaned_data.get('redirect_uri'),
                 'response_type': form.cleaned_data.get('response_type', None),
                 'state': form.cleaned_data.get('state', None),
+                'code_challenge_method': form.cleaned_data.get('code_challenge_method', None) or None,
+                'code_challenge': form.cleaned_data.get('code_challenge', None) or None,  # If it's an empty string, coerce it to None
             }
+            application = get_application_model().objects.get(client_id=credentials['client_id'])
+            if application.enable_pkce:
+                # if pkce is enabled, we want to force pkce authentication
+                if not credentials['code_challenge']:
+                    Error = namedtuple('Error', ['oauthlib_error'])
+
+                    raw_uri = self.request.get_host() + self.request.get_full_path()
+                    req = Request(uri=raw_uri, http_method=self.request.method)
+                    req._params.update(credentials)
+                    exception = InvalidRequestError(
+                        'missing code_challenge parameter',
+                        request=req,
+                        status_code=400,
+                    )
+                    return self.error_response(Error(exception))
 
             scopes = form.cleaned_data.get('scope')
             allow = form.cleaned_data.get('allow')
@@ -121,6 +143,14 @@ class AuthorizationView(BaseAuthorizationView, FormView):
             kwargs['redirect_uri'] = credentials['redirect_uri']
             kwargs['response_type'] = credentials['response_type']
             kwargs['state'] = credentials['state']
+
+            if application.enable_pkce:
+                # grab the values needed for PKCE here instead of in validate_authorization_request()
+                # so we don't need to fork oauthlib too
+                kwargs.update({
+                    'code_challenge': request.GET.get('code_challenge'),
+                    'code_challenge_method': request.GET.get('code_challenge_method'),
+                })
 
             self.oauth2_data = kwargs
             # following two loc are here only because of https://code.djangoproject.com/ticket/17795

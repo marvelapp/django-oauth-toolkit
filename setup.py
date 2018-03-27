@@ -49,7 +49,7 @@ setup(
     include_package_data=True,
     test_suite='runtests',
     install_requires=[
-        'django>=1.8',
+        'django>=1.8,<1.10',
         'django-braces>=1.11.0',
         'oauthlib==2.0.1',
         'six',

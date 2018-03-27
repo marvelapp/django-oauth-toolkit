@@ -2,6 +2,7 @@ from __future__ import unicode_literals
 
 import base64
 import json
+import hashlib
 import datetime
 
 from django.contrib.auth import get_user_model
@@ -907,6 +908,174 @@ class TestAuthorizationCodeTokenView(BaseTest):
         self.assertEqual(content['token_type'], "Bearer")
         self.assertEqual(content['scope'], "read write")
         self.assertEqual(content['expires_in'], oauth2_settings.ACCESS_TOKEN_EXPIRE_SECONDS)
+
+    def test_pkce(self):
+        self.application.enable_pkce = True
+        self.application.save()
+        self.client.login(username="test_user", password="123456")
+        hashed_data = base64.urlsafe_b64encode(hashlib.sha256(b'secret').hexdigest())
+
+        # retrieve a valid authorization code
+        authcode_data = {
+            'client_id': self.application.client_id,
+            'state': 'random_state_string',
+            'scope': 'read write',
+            'redirect_uri': 'http://example.it?foo=bar',
+            'response_type': 'code',
+            'allow': True,
+            'code_challenge': hashed_data,
+            'code_challenge_method': 'S256',
+        }
+        response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
+        query_dict = parse_qs(urlparse(response['Location']).query)
+        authorization_code = query_dict['code'].pop()
+
+        # exchange authorization code for a valid access token
+        token_request_data = {
+            'grant_type': 'authorization_code',
+            'code': authorization_code,
+            'redirect_uri': 'http://example.it?foo=bar',
+            'code_verifier': 'secret'
+        }
+        auth_headers = self.get_basic_auth_header(self.application.client_id, self.application.client_secret)
+
+        response = self.client.post(reverse('oauth2_provider:token'), data=token_request_data, **auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+        content = json.loads(response.content.decode("utf-8"))
+        self.assertEqual(content['token_type'], "Bearer")
+        self.assertEqual(content['scope'], "read write")
+        self.assertEqual(content['expires_in'], oauth2_settings.ACCESS_TOKEN_EXPIRE_SECONDS)
+
+    def test_code_exchange_fails_if_pkce_enabled_but_not_used(self):
+        self.application.enable_pkce = True
+        self.application.save()
+
+        self.client.login(username="test_user", password="123456")
+        hashed_data = base64.urlsafe_b64encode(hashlib.sha256(b'secret').hexdigest())
+
+        authcode_data = {
+            'client_id': self.application.client_id,
+            'state': 'random_state_string',
+            'scope': 'read write',
+            'redirect_uri': 'http://example.it?foo=bar',
+            'response_type': 'code',
+            'allow': True,
+        }
+        response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
+        self.assertEqual(response.status_code, 302)
+
+        # invalid_request_error is expected if code_challenge not provided
+        # https://tools.ietf.org/html/rfc7636#section-4.4.1
+        query_dict = parse_qs(urlparse(response['Location']).query)
+        assert query_dict['error'] == ['invalid_request']
+
+        assert query_dict['error_description'] == ['missing code_challenge parameter']
+        assert query_dict['state'] == ['random_state_string']
+
+    def test_pkce_exchange_fails_with_invalid_hash(self):
+        self.application.enable_pkce = True
+        self.application.save()
+        self.client.login(username="test_user", password="123456")
+        hashed_data = base64.urlsafe_b64encode(hashlib.sha256(b'secret').hexdigest())
+
+        # retrieve a valid authorization code
+        authcode_data = {
+            'client_id': self.application.client_id,
+            'state': 'random_state_string',
+            'scope': 'read write',
+            'redirect_uri': 'http://example.it?foo=bar',
+            'response_type': 'code',
+            'allow': True,
+            'code_challenge': hashed_data
+        }
+        response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
+        query_dict = parse_qs(urlparse(response['Location']).query)
+        authorization_code = query_dict['code'].pop()
+
+        # exchange authorization code for a valid access token
+        token_request_data = {
+            'grant_type': 'authorization_code',
+            'code': authorization_code,
+            'redirect_uri': 'http://example.it?foo=bar',
+            'code_verifier': 'not-the-right-secret'
+        }
+        auth_headers = self.get_basic_auth_header(self.application.client_id, self.application.client_secret)
+
+        response = self.client.post(reverse('oauth2_provider:token'), data=token_request_data, **auth_headers)
+        self.assertNotEqual(response.status_code, 200)
+
+        content = json.loads(response.content.decode("utf-8"))
+        self.assertDictEqual(content, {'error': 'invalid_grant'})
+
+    def test_pkce_exchange_fails_with_missing_value(self):
+        self.application.enable_pkce = True
+        self.application.save()
+        self.client.login(username="test_user", password="123456")
+        hashed_data = base64.urlsafe_b64encode(hashlib.sha256(b'secret').hexdigest())
+
+        # retrieve a valid authorization code
+        authcode_data = {
+            'client_id': self.application.client_id,
+            'state': 'random_state_string',
+            'scope': 'read write',
+            'redirect_uri': 'http://example.it?foo=bar',
+            'response_type': 'code',
+            'allow': True,
+            'code_challenge': hashed_data
+        }
+        response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
+        query_dict = parse_qs(urlparse(response['Location']).query)
+        authorization_code = query_dict['code'].pop()
+
+        # exchange authorization code for a valid access token
+        token_request_data = {
+            'grant_type': 'authorization_code',
+            'code': authorization_code,
+            'redirect_uri': 'http://example.it?foo=bar'
+        }
+        auth_headers = self.get_basic_auth_header(self.application.client_id, self.application.client_secret)
+
+        response = self.client.post(reverse('oauth2_provider:token'), data=token_request_data, **auth_headers)
+        self.assertNotEqual(response.status_code, 200)
+
+        content = json.loads(response.content.decode("utf-8"))
+        self.assertDictEqual(content, {'error': 'invalid_grant'})
+
+    def test_pkce_exchange_fails_with_empty_value(self):
+        self.application.enable_pkce = True
+        self.application.save()
+        self.client.login(username="test_user", password="123456")
+        hashed_data = base64.urlsafe_b64encode(hashlib.sha256(b'secret').hexdigest())
+
+        # retrieve a valid authorization code
+        authcode_data = {
+            'client_id': self.application.client_id,
+            'state': 'random_state_string',
+            'scope': 'read write',
+            'redirect_uri': 'http://example.it?foo=bar',
+            'response_type': 'code',
+            'allow': True,
+            'code_challenge': hashed_data
+        }
+        response = self.client.post(reverse('oauth2_provider:authorize'), data=authcode_data)
+        query_dict = parse_qs(urlparse(response['Location']).query)
+        authorization_code = query_dict['code'].pop()
+
+        # exchange authorization code for a valid access token
+        token_request_data = {
+            'grant_type': 'authorization_code',
+            'code': authorization_code,
+            'redirect_uri': 'http://example.it?foo=bar',
+            'code_verifier': '',
+        }
+        auth_headers = self.get_basic_auth_header(self.application.client_id, self.application.client_secret)
+
+        response = self.client.post(reverse('oauth2_provider:token'), data=token_request_data, **auth_headers)
+        self.assertNotEqual(response.status_code, 200)
+
+        content = json.loads(response.content.decode("utf-8"))
+        self.assertDictEqual(content, {'error': 'invalid_grant'})
 
     def test_code_exchange_fails_when_redirect_uri_does_not_match(self):
         """

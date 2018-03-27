@@ -1,6 +1,8 @@
 from __future__ import unicode_literals
 
+import base64
 from datetime import timedelta
+import hashlib
 
 from django.apps import apps
 from django.conf import settings
@@ -72,6 +74,9 @@ class AbstractApplication(models.Model):
                                      default=generate_client_secret, db_index=True)
     name = models.CharField(max_length=255, blank=True)
     skip_authorization = models.BooleanField(default=False)
+
+    # if True, authorization /must/ happen using PKCE
+    enable_pkce = models.BooleanField(default=False)
 
     class Meta:
         abstract = True
@@ -166,6 +171,14 @@ class Grant(models.Model):
     expires = models.DateTimeField()
     redirect_uri = models.CharField(max_length=255)
     scope = models.TextField(blank=True)
+    pkce_code = models.TextField(null=True)
+
+    def check_pkce(self, given_value):
+        if given_value is None or self.pkce_code is None:
+            return False
+
+        hashed_given_value = base64.urlsafe_b64encode(hashlib.sha256(given_value).hexdigest())
+        return hashed_given_value == self.pkce_code
 
     def is_expired(self):
         """

@@ -8,3 +8,5 @@ class AllowForm(forms.Form):
     client_id = forms.CharField(widget=forms.HiddenInput())
     state = forms.CharField(required=False, widget=forms.HiddenInput())
     response_type = forms.CharField(widget=forms.HiddenInput())
+    code_challenge_method = forms.ChoiceField(required=False, widget=forms.HiddenInput(), choices=(('S256', 'S256'),))
+    code_challenge = forms.CharField(required=False, widget=forms.HiddenInput())
