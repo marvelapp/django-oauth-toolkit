@@ -109,7 +109,8 @@ class AuthorizationView(BaseAuthorizationView, FormView):
                 if not credentials['code_challenge']:
                     Error = namedtuple('Error', ['oauthlib_error'])
 
-                    req = Request(uri=self.request.get_raw_uri(), http_method=self.request.method)
+                    raw_uri = self.request.get_host() + self.request.get_full_path()
+                    req = Request(uri=raw_uri, http_method=self.request.method)
                     req._params.update(credentials)
                     exception = InvalidRequestError(
                         'missing code_challenge parameter',
